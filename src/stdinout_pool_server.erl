@@ -81,8 +81,10 @@ handle_call({stdin, Content}, From, #state{available = [H|T]} = State) ->
           gen_server:reply(From, gather_response(H)),
           port_close(H)
         end),
-  {noreply, State#state{available = T}}.
+  {noreply, State#state{available = T}};
  
+handle_call(shutdown, _From, State) ->
+  {stop, normal, State}.
 
 gather_response(Port) ->
   gather_response(Port, []).
@@ -126,12 +128,6 @@ handle_info({'EXIT', Pid, _Reason},
              {noreply, State#state{available = NewAvail, reserved = RemovedOld}}
   end;
 
-handle_info(shutdown,
-    #state{available=Available, reserved=Reserved} = State) ->
-  [port_close(P) || P <- Available],
-  [port_close(P) || P <- Reserved],
-  {stop, normal, State#state{available=[],reserved=[]}};
-
 handle_info(Info, State) ->
   error_logger:error_msg("Other info: ~p with state ~p~n", [Info, State]),
   {noreply, State}.
@@ -143,7 +139,9 @@ handle_info(Info, State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{available = A, reserved = R}) ->
+  [port_close(P) || P <- A],
+  [port_close(P) || P <- R],
   ok.
 
 %%--------------------------------------------------------------------
