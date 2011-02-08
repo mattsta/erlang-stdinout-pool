@@ -12,7 +12,7 @@
 % oneshot callback
 -export([handle_oneshot/1]).
 
--record(state, {cmd, ip, port, available, reserved, count}).
+-record(state, {cmd, ip, port, available, reserved, count, forcer}).
 
 %%====================================================================
 %% api callbacks
@@ -52,7 +52,9 @@ count_cpus([{processor, Cores} | T], Count) ->
 %%--------------------------------------------------------------------
 init([Cmd, IP, Port, SocketCount]) ->
   process_flag(trap_exit, true),
-  initial_setup(#state{cmd = Cmd, ip = IP, port = Port, count = SocketCount}).
+  Forcer = get_base_dir(?MODULE) ++ "/priv/stdin_forcer",
+  initial_setup(#state{cmd = Cmd, forcer = Forcer,
+                       ip = IP, port = Port, count = SocketCount}).
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -156,16 +158,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 initial_setup(#state{count = Count} = State) ->
   OpenedPorts =  [setup(State) || _ <- lists:seq(1, Count)],
-  BaseDir = get_base_dir(?MODULE),
-  code:add_paths([BaseDir, BaseDir ++ "/priv"]),
   setup_external_server(State),
   {ok, State#state{
          available = OpenedPorts,
          reserved = []}}.
 
-setup(#state{cmd = Cmd}) ->
+setup(#state{cmd = Cmd, forcer = Forcer}) ->
 %  io:format("Opening ~s~n", [Cmd]),  % Uncomment to see re-spawns happen live
-  open_port({spawn_executable, "priv/stdin_forcer"},
+  open_port({spawn_executable, Forcer},
              [stream, use_stdio, stderr_to_stdout, binary, eof,
               {args, string:tokens(Cmd, " ")}]).
 
