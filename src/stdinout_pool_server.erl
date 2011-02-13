@@ -81,11 +81,8 @@ handle_call({stdin, Content}, From, #state{available = [H|T]} = State) ->
           gen_server:reply(From, gather_response(H)),
           port_close(H)
         end),
-  {noreply, State#state{available = T}};
+  {noreply, State#state{available = T}}.
  
-handle_call(shutdown, _From, State) ->
-  {stop, normal, State}.
-
 gather_response(Port) ->
   gather_response(Port, []).
 gather_response(Port, Accum) ->
@@ -192,7 +189,8 @@ oneshot_length(Sock, Acc) ->
                           gen_tcp:send(Sock, oneshot_error({format, RAcc})),
                           exit(normal)
                       end;
-    {ok, Bin}      -> oneshot_length(Sock, [Bin | Acc])
+         {ok, Bin} -> oneshot_length(Sock, [Bin | Acc]);
+        {error, _} -> exit(self(), normal)
   end.
 
 handle_oneshot(Pool) ->

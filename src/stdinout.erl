@@ -63,4 +63,4 @@ pipe(Content, [Server | T]) ->
 %% Stopping
 %%====================================================================
 shutdown(Server) ->
-  gen_server:call(Server, shutdown).
+  exit(Server, normal).
