@@ -2,3 +2,4 @@ ebin/
 priv/
 deps/
 *.o
+.eunit/

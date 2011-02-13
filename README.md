@@ -114,6 +114,12 @@ Build:
 
 Testing
 -------
+Automated:
+        rebar eunit skip_deps=true
+
+Automated with timing details:
+        rebar eunit skip_deps=true -v
+
 In the `test/` directory there is a short script to verify error conditions.
 You can load test error conditions with:
         time seq 0 300 |xargs -n 1 -P 16 ./errors.sh TARGET-IP TARGET-PORT
