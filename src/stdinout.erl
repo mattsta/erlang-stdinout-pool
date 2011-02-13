@@ -22,12 +22,18 @@ start_link(GenServerName, Cmd, IP, Port, SocketCount) ->
 send(Server, Content) ->
   gen_server:call(Server, {stdin, Content}).
 
+%%====================================================================
+%% stdin->stdout through network
+%%====================================================================
 send(Host, Port, Content) ->
-  {ok, Sock} = gen_tcp:connect(Host, Port, [binary, {active, false}]),
-  Length = integer_to_list(iolist_size(Content)),
-  Formatted = [Length, "\n", Content],
-  gen_tcp:send(Sock, Formatted),
-  recv_loop(Sock, []).
+  case integer_to_list(iolist_size(Content)) of
+       "0" -> [];   % if we aren't sending anything, don't send anything
+    Length -> Formatted = [Length, "\n", Content],
+              {ok, Sock} =
+                gen_tcp:connect(Host, Port, [binary, {active, false}]),
+              gen_tcp:send(Sock, Formatted),
+              recv_loop(Sock, [])
+  end.
 
 recv_loop(Sock, Accum) ->
   case gen_tcp:recv(Sock, 0) of
