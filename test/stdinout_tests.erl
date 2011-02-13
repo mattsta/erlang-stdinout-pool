@@ -42,8 +42,10 @@ everything_erlang_API_in_parallel_test_() ->
           ?_E(<<"hello">>, ?B(stdinout:send(cat1, <<"hello">>))),
           ?_E(<<"hello">>, ?B(stdinout:send(cat1, [<<"hello">>]))),
           ?_E(<<"hello">>, ?B(stdinout:send(cat1, [<<"he">>, <<"llo">>]))),
+          ?_E(ok, stdinout:reload(cat1)),
           ?_E(<<"hello">>, ?B(stdinout:send(cat1, ["he", "llo"]))),
           ?_E([], stdinout:send(cat1, "")),
+          ?_E(ok, stdinout:reload(cat2)),
           ?_E(<<"hello">>, ?B(stdinout:pipe("hello",[cat1, cat2, cat3, cat4]))),
           ?_E({error, cat1, <<"hello">>},
             % this wacky fun exists to erlang:iolist_to_binary/1 the ErrorIoList
@@ -52,6 +54,7 @@ everything_erlang_API_in_parallel_test_() ->
                 stdinout:pipe("hello", [{cat1, "he"}, cat2, cat3, cat4]),
               {error, cat1, ?B(ErrorIoList)}
             end()),
+          ?_E(ok, stdinout:reload(cat1)),
           ?_E({error, wc, <<"      0       1       5\n">>},
             fun() ->
               {error, wc, ErrorIoList} =

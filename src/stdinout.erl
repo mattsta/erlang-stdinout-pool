@@ -3,6 +3,7 @@
 -export([start_link/2, start_link/4, start_link/5]).
 
 -export([send/2, send/3]).
+-export([reload/1]).
 -export([pipe/2]).
 -export([shutdown/1]).
 %%====================================================================
@@ -16,6 +17,12 @@ start_link(GenServerName, Cmd, IP, Port) ->
 
 start_link(GenServerName, Cmd, IP, Port, SocketCount) ->
   stdinout_pool_server:start_link(GenServerName, Cmd, IP, Port, SocketCount).
+
+%%====================================================================
+%% respawn all running processes
+%%====================================================================
+reload(Server) ->
+  gen_server:call(Server, reload).
 
 %%====================================================================
 %% stdin->stdout through pool or network

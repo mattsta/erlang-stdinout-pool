@@ -81,7 +81,11 @@ handle_call({stdin, Content}, From, #state{available = [H|T]} = State) ->
           gen_server:reply(From, gather_response(H)),
           port_close(H)
         end),
-  {noreply, State#state{available = T}}.
+  {noreply, State#state{available = T}};
+
+handle_call(reload, _From, #state{available = Running} = State) ->
+  [port_close(R) || R <- Running],
+  {reply, ok, State#state{available = []}}.
  
 gather_response(Port) ->
   gather_response(Port, []).
