@@ -48,7 +48,7 @@ then no network server is created.
 
 Usage
 -----
-### Erlang API Usage
+### Erlang API Basic STDIN/STDOUT Usage
         61> stdinout:start_link(uglify, "/home/matt/bin/cl-uglify-js").
         {ok,<0.10143.0>}
         62> stdinout:send(uglify, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
@@ -68,6 +68,9 @@ Usage
 Note: `cl-uglify-js` returned the result in an average of 20ms.
 `closure.jar` returned the result in an average of 800ms.
 `yuicompressor.jar` returned the result in an average of 107ms.
+
+### Erlang API STDIN->STDOUT->STDIN->...->STDOUT Pipes
+
 
 ### Network API Usage
 Start a stdinout server with an explicit IP/Port to bind:

@@ -26,10 +26,11 @@ setup_ports() ->
   S7 = stdinout:start_link(catn2, "/bin/cat",    "127.0.0.1", 6652),
   S8 = stdinout:start_link(wcn,   "/usr/bin/wc", "127.0.0.1", 6653),
 
+  [unlink(P) || {ok, P} <- [S1, S2, S3, S4, S5, S6, S7, S8]],
   [P || {ok, P} <- [S1, S2, S3, S4, S5, S6, S7, S8]].
 
 cleanup_ports(Ps) ->
-  [exit(P, normal) || P <- Ps].
+  [exit(P, shutdown) || P <- Ps].
 
 everything_erlang_API_in_parallel_test_() ->
   {setup,
