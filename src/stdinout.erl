@@ -70,4 +70,4 @@ pipe(Content, [Server | T]) ->
 %% Stopping
 %%====================================================================
 shutdown(Server) ->
-  exit(Server, normal).
+  exit(whereis(Server), normal).
