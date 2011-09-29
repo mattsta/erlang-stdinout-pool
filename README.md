@@ -134,6 +134,9 @@ You can load test sending other data to stdinout over the network too, but
 those tests can be target-specific depending on what you are spawning, your
 memory usage of spawned processes, and overall workload expectations.
 
+Tests work properly under Linux, but two tests fail under OS X due to spacing
+differences in output.  You can visually spot check those to make sure they
+are essentially the same.
 
 History
 -------
