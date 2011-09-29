@@ -1,7 +1,7 @@
 {application, stdinout_pool,
  [
   {description, "manage a pool of processes used for stdin/stdout"},
-  {vsn, "1.3.0"},
+  {vsn, "1.3.5"},
   {registered, []},
   {applications, [
                   kernel,
