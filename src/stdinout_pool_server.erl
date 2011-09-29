@@ -32,6 +32,8 @@ start_link(GenServerName, Cmd, IP, Port, SocketCount) ->
 
 count_cpus() ->
   count_cpus(erlang:system_info(cpu_topology), 0).
+count_cpus(undefined, Count) ->
+  Count;
 count_cpus([], Count) ->
   Count;
 count_cpus([{node, [{processor, Cores}]} | T], Count) ->
