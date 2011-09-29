@@ -30,7 +30,7 @@ setup_ports() ->
   [P || {ok, P} <- [S1, S2, S3, S4, S5, S6, S7, S8]].
 
 cleanup_ports(Ps) ->
-  [exit(P, shutdown) || P <- Ps].
+  [stdinout:shutdown(P) || P <- Ps].
 
 everything_erlang_API_in_parallel_test_() ->
   {setup,

@@ -69,5 +69,7 @@ pipe(Content, [Server | T]) ->
 %%===================================================================
 %% Stopping
 %%====================================================================
-shutdown(Server) ->
-  exit(whereis(Server), normal).
+shutdown(Server) when is_pid(Server) ->
+  exit(Server, shutdown);
+shutdown(Server) when is_atom(Server) ->
+  shutdown(whereis(Server)).
