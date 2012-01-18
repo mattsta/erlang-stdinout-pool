@@ -6,6 +6,9 @@
 -export([reload/1]).
 -export([pipe/2]).
 -export([shutdown/1]).
+
+-define(TIMEOUT, 60000).
+
 %%====================================================================
 %% Starting
 %%====================================================================
@@ -22,7 +25,7 @@ start_link(GenServerName, Cmd, IP, Port, SocketCount) ->
 %% respawn all running processes
 %%====================================================================
 reload(Server) ->
-  gen_server:call(Server, reload).
+  gen_server:call(Server, reload, ?TIMEOUT).
 
 %%====================================================================
 %% stdin->stdout through pool or network
@@ -30,7 +33,7 @@ reload(Server) ->
 send({Host, Port}, Content) ->
   send(Host, Port, Content);
 send(Server, Content) ->
-  gen_server:call(Server, {stdin, Content}).
+  gen_server:call(Server, {stdin, Content}, ?TIMEOUT).
 
 %%====================================================================
 %% stdin->stdout through network
