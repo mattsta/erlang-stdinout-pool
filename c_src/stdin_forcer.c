@@ -16,6 +16,7 @@
 
 int main(int argc, char *argv[]) {
   int readpipe[2], writepipe[2];
+  int unused __attribute__((unused));
   pid_t cpid;
 
   assert(1 < argc && argc < 64);
@@ -66,12 +67,12 @@ int main(int argc, char *argv[]) {
     close(CHILD_WRITE);
     /* We should catch the child's exit signal if it dies before we send STDIN*/
     while (read(STDIN_FILENO, &buf, 1) > 0 && buf != 0x0) {
-      write(PARENT_WRITE, &buf, 1);
+      unused = write(PARENT_WRITE, &buf, 1);
     }
     close(PARENT_WRITE); /* closing PARENT_WRITE sends EOF to CHILD_READ */
     wait(NULL);          /* Wait for child to exit */
     while (read(PARENT_READ, &buf, 1) > 0) {
-      write(STDOUT_FILENO, &buf, 1);  /* Vomit forth our output on STDOUT */
+      unused = write(STDOUT_FILENO, &buf, 1);  /* Vomit forth our output on STDOUT */
     }
     close(PARENT_READ);      /* done reading from writepipe */
     exit(EXIT_SUCCESS);      /* This was a triumph */
