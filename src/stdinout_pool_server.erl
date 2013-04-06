@@ -36,10 +36,14 @@ count_cpus(undefined, Count) ->
   Count;
 count_cpus([], Count) ->
   Count;
-count_cpus([{node, [{processor, Cores}]} | T], Count) ->
+count_cpus([{node, [{processor, Cores}]} | T], Count) when is_list (Cores) ->
   count_cpus(T, Count + length(Cores));
-count_cpus([{processor, Cores} | T], Count) ->
-  count_cpus(T, Count + length(Cores)).
+count_cpus([{node, [{processor, _}]} | T], Count) ->
+  count_cpus(T, Count + 1);
+count_cpus([{processor, Cores} | T], Count) when is_list (Cores) ->
+  count_cpus(T, Count + length(Cores));
+count_cpus([{processor, _} | T], Count) ->
+  count_cpus(T, Count + 1).
 
 %%====================================================================
 %% gen_server callbacks
