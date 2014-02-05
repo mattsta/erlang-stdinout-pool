@@ -49,6 +49,7 @@ then no network server is created.
 Usage
 -----
 ### Erlang API Basic STDIN/STDOUT Usage
+
         61> stdinout:start_link(uglify, "/home/matt/bin/cl-uglify-js").
         {ok,<0.10143.0>}
         62> stdinout:send(uglify, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
@@ -74,10 +75,12 @@ Note: `cl-uglify-js` returned the result in an average of 20ms.
 
 ### Network API Usage
 Start a stdinout server with an explicit IP/Port to bind:
+
         93> stdinout:start_link(bob_network, "/home/matt/bin/cl-uglify-js", "127.0.0.1", 6641).
         {ok,<0.10209.0>}  
 
 Now from a shell, send some data:
+
         matt@vorash:~% echo "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();" | nc localhost 6641
         STDINOUT_POOL_ERROR: Length line too long: [(function(] (first ten bytes).
 
@@ -88,6 +91,7 @@ by a unix newline (i.e. "\n").
 
 Trying again, we store the JS in a variable, use wc to get the length, then
 send the length on the first line and the content after it:
+
         matt@vorash:~% SEND_JS="(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();"
         matt@vorash:~% echo $SEND_JS |wc -c
         142
@@ -109,22 +113,27 @@ or from the network.
 Building
 --------
 Dependencies:
+
         rebar get-deps
 
 Build:
+
         rebar compile
 
 
 Testing
 -------
 Automated:
+
         rebar eunit skip_deps=true
 
 Automated with timing details:
+
         rebar eunit skip_deps=true -v
 
 In the `test/` directory there is a short script to verify error conditions.
 You can load test error conditions with:
+
         time seq 0 300 |xargs -n 1 -P 16 ./errors.sh TARGET-IP TARGET-PORT
 
 `P` is the number of time to run the script in parallel.  Increase or decrease
