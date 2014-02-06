@@ -32,6 +32,11 @@ start_link(GenServerName, Cmd, IP, Port, SocketCount) ->
 
 count_cpus() ->
   count_cpus(erlang:system_info(cpu_topology), 0).
+count_cpus(undefined, 0) ->
+  case erlang:system_info(logical_processors_available) of
+    unknown -> erlang:system_info(schedulers_online);
+      Count -> Count
+  end;
 count_cpus(undefined, Count) ->
   Count;
 count_cpus([], Count) ->
