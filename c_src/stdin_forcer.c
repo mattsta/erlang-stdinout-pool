@@ -6,13 +6,18 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 
 #define PARENT_READ readpipe[0]
 #define CHILD_WRITE readpipe[1]
 #define CHILD_READ writepipe[0]
 #define PARENT_WRITE writepipe[1]
 
-#define DUP2CLOSE(oldfd, newfd) (dup2(oldfd, newfd) == 0 && close(oldfd) == 0)
+int dup2close(int oldfd, int newfd)
+{
+  while ((dup2(oldfd, newfd) == -1) && (errno == EINTR)) {}
+  return close(oldfd);
+}
 
 int main(int argc, char *argv[]) {
     int readpipe[2], writepipe[2];
@@ -21,15 +26,36 @@ int main(int argc, char *argv[]) {
 
     assert(1 < argc && argc < 64);
 
-    if (pipe(readpipe) == -1 || pipe(writepipe) == -1) {
-        perror("pipe");
-        exit(EXIT_FAILURE);
+  if (pipe(readpipe) == -1 || pipe(writepipe) == -1) {
+    perror("pipe");
+    exit(EXIT_FAILURE);
+  }
+
+  cpid = fork();
+  if (cpid == -1) { perror("fork"); exit(EXIT_FAILURE); }
+
+  if (cpid == 0) {
+    /* Forked Child with STDIN forwarding */
+    char *cmd = argv[1];
+    char *exec_args[64] = {0};
+    int i;
+
+    for (i = 0; i < argc - 1; i++) {
+      /* args to stdin_forcer are the program and optional args to exec.
+         Here we copy pointers pointing to strings of cmd/args.
+         exec_args is indexed one lower than argv. */
+      exec_args[i] = argv[i+1];
     }
 
-    cpid = fork();
-    if (cpid == -1) {
-        perror("fork");
-        exit(EXIT_FAILURE);
+    close(PARENT_READ);  /* We aren't the parent. Decrement fd refcounts. */
+    close(PARENT_WRITE);
+
+    /* CHILD_READ  = STDIN  to the exec'd process.
+       CHILD_WRITE = STDOUT to the exec'd process. */
+    if (!dup2close(CHILD_READ,   STDIN_FILENO) &&
+         dup2close(CHILD_WRITE, STDOUT_FILENO)) {
+      perror("dup2 or close");
+      _exit(EXIT_FAILURE);
     }
 
     if (cpid == 0) {
