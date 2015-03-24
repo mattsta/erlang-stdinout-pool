@@ -14,7 +14,7 @@ process in your pool.
 Why is this special?
 --------------------
 Erlang ports are unable to send EOF or close stdin on ports.  To get around
-that limitation, stdinout_pool includes a C port to intercept stdin and 
+that limitation, stdinout_pool includes a C port to intercept stdin and
 forward it to a spawned process.  When the C port sees a null byte
 (automatically appended to your input when you call `stdinout:send/2`), it
 closes stdin and sends stdout from the spawned process to normal stdout.
@@ -35,7 +35,7 @@ Port is an integer.
 
 The number of default idle processes is the number of cores the erlang VM sees.
 
-Note: there is no upper limit on the number of spawned processes. 
+Note: there is no upper limit on the number of spawned processes.
 The process count is how
 many already-spun-up-and-waiting processes to keep lingering.  If you have 4
 waiting processes but suddenly get 30 requests, extra processes will be spawned
@@ -50,21 +50,22 @@ Usage
 -----
 ### Erlang API Basic STDIN/STDOUT Usage
 
-        61> stdinout:start_link(uglify, "/home/matt/bin/cl-uglify-js").
-        {ok,<0.10143.0>}
-        62> stdinout:send(uglify, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
-        [<<"(function(){function b(){return a()}function a(){return 3}b()})();">>]
+```erlang
+61> stdinout:start_link(uglify, "/home/matt/bin/cl-uglify-js").
+{ok,<0.10143.0>}
+62> stdinout:send(uglify, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
+[<<"(function(){function b(){return a()}function a(){return 3}b()})();">>]
 
-        63> stdinout:start_link(closure, "/usr/java/latest/bin/java -jar /home/matt/bin/closure/compiler.jar").
-        {ok,<0.10149.0>}
-        64> stdinout:send(closure, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
-        [<<"(function(){function a(){return 3}function b(){return a()}b()})();\n">>]
+63> stdinout:start_link(closure, "/usr/java/latest/bin/java -jar /home/matt/bin/closure/compiler.jar").
+{ok,<0.10149.0>}
+64> stdinout:send(closure, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
+[<<"(function(){function a(){return 3}function b(){return a()}b()})();\n">>]
 
-        65> stdinout:start_link(yui_js, "/usr/java/latest/bin/java -jar /home/matt/bin/utils/yuicompressor/yuicompressor-2.4.2.jar --type js").
-        {ok,<0.10153.0>}
-        66> stdinout:send(yui_js, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
-        [<<"(function(){function b(){return 3}function a(){return b()}a()})();">>]
-
+65> stdinout:start_link(yui_js, "/usr/java/latest/bin/java -jar /home/matt/bin/utils/yuicompressor/yuicompressor-2.4.2.jar --type js").
+{ok,<0.10153.0>}
+66> stdinout:send(yui_js, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
+[<<"(function(){function b(){return 3}function a(){return b()}a()})();">>]
+```
 
 Note: `cl-uglify-js` returned the result in an average of 20ms.
 `closure.jar` returned the result in an average of 800ms.
@@ -76,13 +77,17 @@ Note: `cl-uglify-js` returned the result in an average of 20ms.
 ### Network API Usage
 Start a stdinout server with an explicit IP/Port to bind:
 
-        93> stdinout:start_link(bob_network, "/home/matt/bin/cl-uglify-js", "127.0.0.1", 6641).
-        {ok,<0.10209.0>}  
+```erlang
+93> stdinout:start_link(bob_network, "/home/matt/bin/cl-uglify-js", "127.0.0.1", 6641).
+{ok,<0.10209.0>}
+```
 
 Now from a shell, send some data:
 
-        matt@vorash:~% echo "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();" | nc localhost 6641
-        STDINOUT_POOL_ERROR: Length line too long: [(function(] (first ten bytes).
+```bash
+matt@vorash:~% echo "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();" | nc localhost 6641
+STDINOUT_POOL_ERROR: Length line too long: [(function(] (first ten bytes).
+```
 
 Uh oh, what went wrong?  We have to tell the server how big our input is going
 to be first.  The protocol for the network server is simple: the first line
@@ -92,19 +97,22 @@ by a unix newline (i.e. "\n").
 Trying again, we store the JS in a variable, use wc to get the length, then
 send the length on the first line and the content after it:
 
-        matt@vorash:~% SEND_JS="(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();"
-        matt@vorash:~% echo $SEND_JS |wc -c
-        142
-        matt@vorash:~% echo $SEND_JS |(wc -c && echo $SEND_JS) | nc localhost 6641
-        (function(){function b(){return a()}function a(){return 3}b()})();
+```bash
+matt@vorash:~% SEND_JS="(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();"
+matt@vorash:~% echo $SEND_JS |wc -c
+142
+matt@vorash:~% echo $SEND_JS |(wc -c && echo $SEND_JS) | nc localhost 6641
+(function(){function b(){return a()}function a(){return 3}b()})();
+```
 
 Success!  Here is the same example with wc/cat/nc goodness, but from a file:
 
-        matt@vorash:~% cat send_example.js
-        (function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();
-        matt@vorash:~% wc -c send_example.js | (awk '{print $1}' && cat send_example.js )| nc localhost 6641
-        (function(){function b(){return a()}function a(){return 3}b()})();
-
+```bash
+matt@vorash:~% cat send_example.js
+(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();
+matt@vorash:~% wc -c send_example.js | (awk '{print $1}' && cat send_example.js )| nc localhost 6641
+(function(){function b(){return a()}function a(){return 3}b()})();
+```
 
 Now you have a fully functioning stdin/stdout server accessible from erlang
 or from the network.
@@ -139,7 +147,7 @@ You can load test error conditions with:
 `P` is the number of time to run the script in parallel.  Increase or decrease
 as necessary.
 
-You can load test sending other data to stdinout over the network too, but 
+You can load test sending other data to stdinout over the network too, but
 those tests can be target-specific depending on what you are spawning, your
 memory usage of spawned processes, and overall workload expectations.
 
@@ -153,7 +161,7 @@ I wanted to get on-the-fly javascript minification done as fast as possible.
 For small to medium-size JS snippets, starting up a Lisp or Java VM was
 the dominating factor for throughput (too many `os:cmd/1` calls).
 
-The obvious next step was to start up some processes, let them sit idle, 
+The obvious next step was to start up some processes, let them sit idle,
 send stdin when needed, swallow output, then re-spawn dead processes.
 It seemed so simple,
 except erlang is unable to close stdin or send an EOF to stdin on spawned
@@ -167,5 +175,5 @@ concept like "data in, data out" to an erlang-only API?  Not very good.  Why
 not glue on a network server so anybody can send stdin and get stdout?  There
 is no good reason it should not exist, so now the erlang stdin/stdout forwarder
 has a network API.  Potential usage: cluster of machines to on-the-fly minify
-JS (use cl-uglify-js), CSS (yuicompressor.jar --type css), or transform 
+JS (use cl-uglify-js), CSS (yuicompressor.jar --type css), or transform
 anything else you can shove data into and get something useful back out.
