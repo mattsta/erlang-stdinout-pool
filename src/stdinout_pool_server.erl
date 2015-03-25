@@ -76,6 +76,8 @@ init([Cmd, IP, Port, SocketCount]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+strip_ok({ok, Data}) -> Data;
+strip_ok(Data) -> Data.
 % If we run out of available processes, just make another one.
 % There should be a limit here. Maybe track used ones and make max 2xCount ports
 % Or, we could make a waiting_clients list and service them on respawn
@@ -86,9 +88,9 @@ handle_call({stdin, Content}, From, #state{available = []} = State) ->
 handle_call({stdin, Content}, From, #state{available = [H|T]} = State) ->
   % quickly spawn so we can be a non-blocking gen_server:
   spawn(fun() ->
-          port_connect(H, self()),   % attach port to this spawned process
-          port_command(H, Content),  % send our stdin content to the wrapper
-          port_command(H, <<0>>),    % tell the wrapper we're done
+          port_connect(H, self()),             % attach port to this spawned process
+          port_command(H, strip_ok(Content)),  % send our stdin content to the wrapper
+          port_command(H, <<0>>),              % tell the wrapper we're done
           gen_server:reply(From, gather_response(H)),
           port_close(H)
         end),
@@ -97,7 +99,7 @@ handle_call({stdin, Content}, From, #state{available = [H|T]} = State) ->
 handle_call(reload, _From, #state{available = Running} = State) ->
   [port_close(R) || R <- Running],
   {reply, ok, State#state{available = []}}.
- 
+
 gather_response(Port) ->
   gather_response(Port, []).
 gather_response(Port, Accum) ->
@@ -232,10 +234,10 @@ handle_oneshot(Pool, TotalSz, Acc) ->
                                                       _/binary>> = UR,
                                                     Usable
                                         end,
-                              Stdout = case stdinout:send(Pool, UseAcc) of
+                              Stdout = case stdinout:send_raw(Pool, UseAcc) of
                                          {died, StdAccum} ->
                                            oneshot_error({died, StdAccum});
-                                                    Value -> Value
+                                         Value -> Value
                                         end,
                               ok = gen_tcp:send(Socket, Stdout);
                             true ->
@@ -263,7 +265,7 @@ setup_external_server(#state{ip = none, port = none}) ->
   ok;
 setup_external_server(#state{ip = IP, port = Port}) ->
   ThisGenServer = self(),
-  {ok, _Pid} = 
-  oneshot_server:start_link(IP, Port, fun() -> 
+  {ok, _Pid} =
+  oneshot_server:start_link(IP, Port, fun() ->
                                         ?MODULE:handle_oneshot(ThisGenServer)
                                        end).
