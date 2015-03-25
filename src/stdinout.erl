@@ -3,6 +3,7 @@
 -export([start_link/2, start_link/4, start_link/5]).
 
 -export([send/2, send/3]).
+-export([send_raw/2]).
 -export([reload/1]).
 -export([pipe/2]).
 -export([shutdown/1]).
@@ -28,12 +29,21 @@ reload(Server) ->
   gen_server:call(Server, reload, ?TIMEOUT).
 
 %%====================================================================
+%% stdin->stdout through pool without consuming error byte
+%%====================================================================
+send_raw(Server, Content) ->
+  gen_server:call(Server, {stdin, Content}, ?TIMEOUT).
+
+%%====================================================================
 %% stdin->stdout through pool or network
 %%====================================================================
 send({Host, Port}, Content) ->
-  send(Host, Port, Content);
+  check_err(send(Host, Port, Content));
 send(Server, Content) ->
-  gen_server:call(Server, {stdin, Content}, ?TIMEOUT).
+  check_err(send_raw(Server, Content)).
+
+check_err([<<145, Tail/binary>>]) -> {error, [<<Tail/binary>>]}; % ASCII & UTF-8 control character: 145 | 0x91 | PU1 | Reserved for private use.
+check_err(Data) -> {ok, Data}.
 
 %%====================================================================
 %% stdin->stdout through network
@@ -58,16 +68,17 @@ recv_loop(Sock, Accum) ->
 %% stdin->stdout through a series of pipes using pool or network
 %%====================================================================
 pipe(Content, []) ->
-  Content;
+  {ok, Content};
 % If ErrorRegex is an integer, we have a {Host, Port} tuple, not a regex.
 pipe(Content, [{Server, ErrorRegex} | T]) when not is_integer(ErrorRegex) ->
-  Stdout = send(Server, Content),
+  {ok, Stdout} = send(Server, Content),
   case re:run(Stdout, ErrorRegex) of
        nomatch -> pipe(Stdout, T);
     {match, _} -> {error, Server, Stdout}
   end;
 pipe(Content, [Server | T]) ->
-  pipe(send(Server, Content), T).
+  {ok, Stdout} = send(Server, Content),
+  pipe(Stdout, T).
 
 %%===================================================================
 %% Stopping

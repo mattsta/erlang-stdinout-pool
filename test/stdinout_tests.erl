@@ -3,7 +3,7 @@
 
 -define(E(A, B), ?assertEqual(A, B)).
 -define(_E(A, B), ?_assertEqual(A, B)).
--define(B(X), iolist_to_binary(X)).
+-define(B(X), iolist_to_binary(validate(X))).
 
 get_base_dir(Module) ->
   {file, Here} = code:is_loaded(Module),
@@ -11,6 +11,9 @@ get_base_dir(Module) ->
 
 add_oneshot_dep() ->
   code:add_path(get_base_dir(?MODULE) ++ "deps/oneshot/ebin").
+
+validate({ok, Data}) ->
+  Data.
 
 setup_ports() ->
   add_oneshot_dep(),
@@ -45,7 +48,7 @@ everything_erlang_API_in_parallel_test_() ->
           ?_E(<<"hello">>, ?B(stdinout:send(cat1, [<<"he">>, <<"llo">>]))),
           ?_E(ok, stdinout:reload(cat1)),
           ?_E(<<"hello">>, ?B(stdinout:send(cat1, ["he", "llo"]))),
-          ?_E([], stdinout:send(cat1, "")),
+          ?_E(<<>>, ?B(stdinout:send(cat1, ""))),
           ?_E(ok, stdinout:reload(cat2)),
           ?_E(<<"hello">>, ?B(stdinout:pipe("hello",[cat1, cat2, cat3, cat4]))),
           ?_E({error, cat1, <<"hello">>},
@@ -53,14 +56,14 @@ everything_erlang_API_in_parallel_test_() ->
             fun() ->
               {error, cat1, ErrorIoList} =
                 stdinout:pipe("hello", [{cat1, "he"}, cat2, cat3, cat4]),
-              {error, cat1, ?B(ErrorIoList)}
+              {error, cat1, iolist_to_binary(ErrorIoList)}
             end()),
-          ?_E(ok, stdinout:reload(cat1)),
+         ?_E(ok, stdinout:reload(cat1)),
           ?_E({error, wc, <<"      0       1       5\n">>},
             fun() ->
               {error, wc, ErrorIoList} =
                 stdinout:pipe("hello", [{cat1, "bob"}, {wc, "5"}, cat3, cat4]),
-              {error, wc, ?B(ErrorIoList)}
+              {error, wc, iolist_to_binary(ErrorIoList)}
             end())
         ]
       }
@@ -82,20 +85,20 @@ network_API_test_() ->
           ?_E(<<"hello">>, ?B(stdinout:send(?C1, [<<"hello">>]))),
           ?_E(<<"hello">>, ?B(stdinout:send(?C1, [<<"he">>, <<"llo">>]))),
           ?_E(<<"hello">>, ?B(stdinout:send(?C2, ["he", "llo"]))),
-          ?_E([], stdinout:send(?C1, "")),
+          ?_E(<<>>, ?B(stdinout:send(?C1, ""))),
           ?_E(<<"hello">>, ?B(stdinout:pipe("hello", [?C1, ?C2, ?C1, ?C2]))),
           ?_E({error, ?C1, <<"hello">>},
             % this wacky fun exists to erlang:iolist_to_binary/1 the ErrorIoList
             fun() ->
               {error, ?C1, ErrorIoList} =
                 stdinout:pipe("hello", [{?C1, "he"}, ?C2, ?C2, ?C1]),
-              {error, ?C1, ?B(ErrorIoList)}
+              {error, ?C1, iolist_to_binary(ErrorIoList)}
             end()),
           ?_E({error, ?W1, <<"      0       1       5\n">>},
             fun() ->
               {error, ?W1, ErrorIoList} =
                 stdinout:pipe("hello", [{?C2, "bob"}, {?W1, "5"}, ?C2, ?C1]),
-              {error, ?W1, ?B(ErrorIoList)}
+              {error, ?W1, iolist_to_binary(ErrorIoList)}
             end())
         ]
       }
