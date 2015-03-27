@@ -178,7 +178,7 @@ initial_setup(#state{count = Count} = State) ->
 setup(#state{cmd = Cmd, forcer = Forcer}) ->
 %  io:format("Opening ~s~n", [Cmd]),  % Uncomment to see re-spawns happen live
   open_port({spawn_executable, Forcer},
-             [stream, use_stdio, stderr_to_stdout, binary, eof,
+             [stream, use_stdio, binary, eof,
               {args, string:tokens(Cmd, " ")}]).
 
 get_base_dir(Module) ->

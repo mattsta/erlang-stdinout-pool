@@ -42,8 +42,10 @@ send({Host, Port}, Content) ->
 send(Server, Content) ->
   check_err(send_raw(Server, Content)).
 
-check_err([<<145, Tail/binary>>]) -> {error, [<<Tail/binary>>]}; % ASCII & UTF-8 control character: 145 | 0x91 | PU1 | Reserved for private use.
-check_err(Data) -> {ok, Data}.
+check_err([<<145, Tail/binary>>]) -> {ok, [<<Tail/binary>>]};    % stdin_forcer SUCCES_BYTE
+check_err([<<146, Tail/binary>>]) -> {error, [<<Tail/binary>>]}; % stdin_forcer ERROR_BYTE
+check_err([])                     -> {ok, []};                   % empty response
+check_err(Data)                   -> {invalid_error_byte, Data}.
 
 %%====================================================================
 %% stdin->stdout through network
@@ -71,14 +73,19 @@ pipe(Content, []) ->
   {ok, Content};
 % If ErrorRegex is an integer, we have a {Host, Port} tuple, not a regex.
 pipe(Content, [{Server, ErrorRegex} | T]) when not is_integer(ErrorRegex) ->
-  {ok, Stdout} = send(Server, Content),
-  case re:run(Stdout, ErrorRegex) of
-       nomatch -> pipe(Stdout, T);
-    {match, _} -> {error, Server, Stdout}
+  case send(Server, Content) of
+    {ok, Stdout} ->
+      case re:run(Stdout, ErrorRegex) of
+          nomatch -> pipe(Stdout, T);
+        {match, _} -> {error, Server, Stdout}
+      end;
+    {error, Errout} -> {error, Server, Errout}
   end;
 pipe(Content, [Server | T]) ->
-  {ok, Stdout} = send(Server, Content),
-  pipe(Stdout, T).
+  case send(Server, Content) of
+    {ok, Stdout} -> pipe(Stdout, T);
+    {error, Errout} -> {error, Server, Errout}
+  end.
 
 %%===================================================================
 %% Stopping
