@@ -38,14 +38,14 @@ send_raw(Server, Content) ->
 %% stdin->stdout through pool or network
 %%====================================================================
 send({Host, Port}, Content) ->
-  check_err(send(Host, Port, Content));
+  check_err(iolist_to_binary(send(Host, Port, Content)));
 send(Server, Content) ->
-  check_err(send_raw(Server, Content)).
+  check_err(iolist_to_binary(send_raw(Server, Content))).
 
-check_err([<<145, Tail/binary>>]) -> {ok, [<<Tail/binary>>]};    % stdin_forcer SUCCES_BYTE
-check_err([<<146, Tail/binary>>]) -> {error, [<<Tail/binary>>]}; % stdin_forcer ERROR_BYTE
-check_err([])                     -> {ok, []};                   % empty response
-check_err(Data)                   -> {invalid_error_byte, Data}.
+check_err(<<145, Tail/binary>>) -> {ok, <<Tail/binary>>};    % stdin_forcer SUCCES_BYTE
+check_err(<<146, Tail/binary>>) -> {error, <<Tail/binary>>}; % stdin_forcer ERROR_BYTE
+check_err(<<>>)                 -> {ok, <<>>};                   % empty response
+check_err(Data)                 -> {invalid_error_byte, Data}.
 
 %%====================================================================
 %% stdin->stdout through network
