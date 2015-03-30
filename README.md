@@ -19,8 +19,13 @@ forward it to a spawned process.  When the C port sees a null byte
 (automatically appended to your input when you call `stdinout:send/2`), it
 closes stdin and sends stdout from the spawned process to normal stdout.
 
-Note: your input must not contain null bytes or else your input will terminate
-on them.
+Erlang ports are also unable to differentiate between stdout and stderr.
+Therefore, the C port prepends the output from the spawned process with a status
+byte. When stdinout sees this byte as a first byte, it will remove it and return
+the stdout data as {ok, Data}, or the stderr data as {error, Data}.
+
+Note: Your input must not contain null bytes or else your input will terminate
+on them. But there are no restrictions on the output, it can be any binary stream.
 
 API
 ---

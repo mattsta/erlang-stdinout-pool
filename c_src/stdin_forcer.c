@@ -6,22 +6,55 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 
 #define PARENT_READ readpipe[0]
 #define CHILD_WRITE readpipe[1]
 #define CHILD_READ writepipe[0]
 #define PARENT_WRITE writepipe[1]
+#define PARENT_ERROR errorpipe[0]
+#define CHILD_ERROR errorpipe[1]
 
-#define DUP2CLOSE(oldfd, newfd) (dup2(oldfd, newfd) == 0 && close(oldfd) == 0)
+/* Status bytes */
+const unsigned char SUCCES_BYTE = 145;  /* ASCII & UTF-8 control character: 145 | 0x91 | PU1 | Reserved for private use. */
+const unsigned char ERROR_BYTE  = 146;  /* ASCII & UTF-8 control character: 146 | 0x92 | PU2 | Reserved for private use. */
+
+int dup2close(int oldfd, int newfd) {
+  while ((dup2(oldfd, newfd) == -1) && (errno == EINTR)) {}
+  return close(oldfd);
+}
+
+void toSTDOUT(int fd, const char firstByte) {
+  char buf[BUFSIZ];
+  ssize_t count;
+
+  do { count = read(fd, buf, BUFSIZ); }
+  while ( count == -1 && errno == EINTR );
+
+  if (count == -1) {
+      perror("read");
+      exit(1);
+  }
+  else if (count > 0) {
+    if (firstByte)
+      write(STDOUT_FILENO, &firstByte, 1); /* Write first byte */
+
+    do {
+      write(STDOUT_FILENO, buf, count); /* Vomit forth our output on STDOUT */
+      count = read(fd, buf, BUFSIZ);
+    }
+    while (count > 0);
+  }
+}
 
 int main(int argc, char *argv[]) {
-    int readpipe[2], writepipe[2];
+    int readpipe[2], writepipe[2], errorpipe[2];
     int unused __attribute__((unused));
     pid_t cpid;
 
     assert(1 < argc && argc < 64);
 
-    if (pipe(readpipe) == -1 || pipe(writepipe) == -1) {
+    if (pipe(readpipe) == -1 || pipe(writepipe) == -1 || pipe(errorpipe) == -1) {
         perror("pipe");
         exit(EXIT_FAILURE);
     }
@@ -47,11 +80,14 @@ int main(int argc, char *argv[]) {
 
         close(PARENT_READ); /* We aren't the parent. Decrement fd refcounts. */
         close(PARENT_WRITE);
+        close(PARENT_ERROR);
 
         /* CHILD_READ  = STDIN  to the exec'd process.
-           CHILD_WRITE = STDOUT to the exec'd process. */
-        if (!DUP2CLOSE(CHILD_READ, STDIN_FILENO) &&
-            DUP2CLOSE(CHILD_WRITE, STDOUT_FILENO)) {
+           CHILD_WRITE = STDOUT to the exec'd process.
+           CHILD_ERROR = STDERR to the exec'd process. */
+        if (dup2close(CHILD_READ, STDIN_FILENO) ||
+            dup2close(CHILD_WRITE, STDOUT_FILENO) ||
+	    dup2close(CHILD_ERROR, STDERR_FILENO)) {
             perror("dup2 or close");
             _exit(EXIT_FAILURE);
         }
@@ -67,18 +103,23 @@ int main(int argc, char *argv[]) {
 
         close(CHILD_READ); /* We aren't the child.  Close its read/write. */
         close(CHILD_WRITE);
-        /* We should catch the child's exit signal if it dies before we send
-         * STDIN*/
+        close(CHILD_ERROR);
+
+        /* Read until 0 byte */
         while (read(STDIN_FILENO, &buf, 1) > 0 && buf != 0x0) {
             unused = write(PARENT_WRITE, &buf, 1);
         }
         close(PARENT_WRITE); /* closing PARENT_WRITE sends EOF to CHILD_READ */
+
+        toSTDOUT(PARENT_READ, (char)SUCCES_BYTE);
+        toSTDOUT(PARENT_ERROR, (char)ERROR_BYTE);
+
+        close(PARENT_READ);   /* done reading from writepipe */
+        close(PARENT_ERROR);  /* done reading from errorpipe */
+        close(STDOUT_FILENO); /* done writing to stdout */
+
         wait(NULL);          /* Wait for child to exit */
-        while (read(PARENT_READ, &buf, 1) > 0) {
-            unused = write(STDOUT_FILENO, &buf,
-                           1); /* Vomit forth our output on STDOUT */
-        }
-        close(PARENT_READ); /* done reading from writepipe */
+
         exit(EXIT_SUCCESS); /* This was a triumph */
     }
 }

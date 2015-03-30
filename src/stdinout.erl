@@ -3,6 +3,7 @@
 -export([start_link/2, start_link/4, start_link/5]).
 
 -export([send/2, send/3]).
+-export([send_raw/2]).
 -export([reload/1]).
 -export([pipe/2]).
 -export([shutdown/1]).
@@ -28,12 +29,23 @@ reload(Server) ->
   gen_server:call(Server, reload, ?TIMEOUT).
 
 %%====================================================================
+%% stdin->stdout through pool without consuming error byte
+%%====================================================================
+send_raw(Server, Content) ->
+  gen_server:call(Server, {stdin, Content}, ?TIMEOUT).
+
+%%====================================================================
 %% stdin->stdout through pool or network
 %%====================================================================
 send({Host, Port}, Content) ->
-  send(Host, Port, Content);
+  check_err(iolist_to_binary(send(Host, Port, Content)));
 send(Server, Content) ->
-  gen_server:call(Server, {stdin, Content}, ?TIMEOUT).
+  check_err(iolist_to_binary(send_raw(Server, Content))).
+
+check_err(<<145, Tail/binary>>) -> {ok, <<Tail/binary>>};    % stdin_forcer SUCCES_BYTE
+check_err(<<146, Tail/binary>>) -> {error, <<Tail/binary>>}; % stdin_forcer ERROR_BYTE
+check_err(<<>>)                 -> {ok, <<>>};                   % empty response
+check_err(Data)                 -> {invalid_error_byte, Data}.
 
 %%====================================================================
 %% stdin->stdout through network
@@ -58,16 +70,22 @@ recv_loop(Sock, Accum) ->
 %% stdin->stdout through a series of pipes using pool or network
 %%====================================================================
 pipe(Content, []) ->
-  Content;
+  {ok, Content};
 % If ErrorRegex is an integer, we have a {Host, Port} tuple, not a regex.
 pipe(Content, [{Server, ErrorRegex} | T]) when not is_integer(ErrorRegex) ->
-  Stdout = send(Server, Content),
-  case re:run(Stdout, ErrorRegex) of
-       nomatch -> pipe(Stdout, T);
-    {match, _} -> {error, Server, Stdout}
+  case send(Server, Content) of
+    {ok, Stdout} ->
+      case re:run(Stdout, ErrorRegex) of
+          nomatch -> pipe(Stdout, T);
+        {match, _} -> {error, Server, Stdout}
+      end;
+    {error, Errout} -> {error, Server, Errout}
   end;
 pipe(Content, [Server | T]) ->
-  pipe(send(Server, Content), T).
+  case send(Server, Content) of
+    {ok, Stdout} -> pipe(Stdout, T);
+    {error, Errout} -> {error, Server, Errout}
+  end.
 
 %%===================================================================
 %% Stopping
