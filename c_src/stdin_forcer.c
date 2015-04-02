@@ -16,16 +16,19 @@
 #define CHILD_ERROR errorpipe[1]
 
 /* Status bytes */
-const unsigned char SUCCES_BYTE =
-    145; /* ASCII & UTF-8 control character: 145 | 0x91 | PU1 | Reserved for
-            private use. */
-const unsigned char ERROR_BYTE =
-    146; /* ASCII & UTF-8 control character: 146 | 0x92 | PU2 | Reserved for
-            private use. */
+enum {
+    /* ASCII & UTF-8 control character: 145 | 0x91 | PU1 | for private use. */
+    SUCCESS_BYTE = 0x91,
+    /* ASCII & UTF-8 control character: 146 | 0x92 | PU2 | for private use. */
+    ERROR_BYTE = 0x92,
+};
 
 int dup2close(int oldfd, int newfd) {
-    while ((dup2(oldfd, newfd) == -1) && (errno == EINTR)) {
-    }
+    int dupResult;
+    do {
+        dupResult = dup2(oldfd, newfd);
+    } while ((dupResult == -1) && (errno == EINTR));
+
     return close(oldfd);
 }
 
@@ -45,8 +48,7 @@ void toSTDOUT(int fd, const char firstByte) {
             write(STDOUT_FILENO, &firstByte, 1); /* Write first byte */
 
         do {
-            write(STDOUT_FILENO, buf,
-                  count); /* Vomit forth our output on STDOUT */
+            write(STDOUT_FILENO, buf, count); /* write buffer to STDOUT */
             count = read(fd, buf, BUFSIZ);
         } while (count > 0);
     }
@@ -112,13 +114,15 @@ int main(int argc, char *argv[]) {
         close(CHILD_ERROR);
 
         /* Read until 0 byte */
+        /* TODO: Create a better length-prefixed protocol so we don't
+         *       rely on a single end-of-stream byte markers. */
         while (read(STDIN_FILENO, &buf, 1) > 0 && buf != 0x0) {
             unused = write(PARENT_WRITE, &buf, 1);
         }
         close(PARENT_WRITE); /* closing PARENT_WRITE sends EOF to CHILD_READ */
 
-        toSTDOUT(PARENT_READ, (char)SUCCES_BYTE);
-        toSTDOUT(PARENT_ERROR, (char)ERROR_BYTE);
+        toSTDOUT(PARENT_READ, (uint8_t)SUCCESS_BYTE);
+        toSTDOUT(PARENT_ERROR, (uint8_t)ERROR_BYTE);
 
         close(PARENT_READ);   /* done reading from writepipe */
         close(PARENT_ERROR);  /* done reading from errorpipe */

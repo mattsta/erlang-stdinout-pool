@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-int is_open(int fd) {
+int isOpen(int fd) {
     errno = 0;
     fcntl(fd, F_GETFD);
     return errno != EBADF;
@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
         buf[count] = 0;
         fputs(buf, stderr);
         count = read(STDIN_FILENO, buf, BUFSIZ);
-    } while (count > 0 && is_open(STDIN_FILENO));
+    } while (count > 0 && isOpen(STDIN_FILENO));
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
