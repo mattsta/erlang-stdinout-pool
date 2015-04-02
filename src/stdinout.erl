@@ -42,9 +42,11 @@ send({Host, Port}, Content) ->
 send(Server, Content) ->
   check_err(send_raw(Server, Content)).
 
-check_err([<<145, Tail/binary>>]) -> {ok, [<<Tail/binary>>]};    % stdin_forcer SUCCES_BYTE
-check_err([<<146, Tail/binary>>]) -> {error, [<<Tail/binary>>]}; % stdin_forcer ERROR_BYTE
-check_err([])                     -> {ok, []};                   % empty response
+% Extract SUCCESS_BYTE marking stdout result
+check_err([<<145, Tail/binary>> | Rest]) -> {ok, [<<Tail/binary>> | Rest]};
+% Extract ERROR_BYTE marking stderr result
+check_err([<<146, Tail/binary>> | Rest]) -> {error, [<<Tail/binary>> | Rest]};
+check_err([])                     -> {ok, []}; % empty response
 check_err(Data)                   -> {invalid_error_byte, Data}.
 
 %%====================================================================
