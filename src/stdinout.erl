@@ -8,6 +8,8 @@
 -export([pipe/2]).
 -export([shutdown/1]).
 
+-export([unwrap/1]).
+
 -define(TIMEOUT, 60000).
 
 %%====================================================================
@@ -42,9 +44,13 @@ send({Host, Port}, Content) ->
 send(Server, Content) ->
   check_err(send_raw(Server, Content)).
 
+unwrap({_Type, Result}) -> Result.
+
 % Extract SUCCESS_BYTE marking stdout result
+check_err([<<145>> | Rest]) -> {stdout, Rest};
 check_err([<<145, Tail/binary>> | Rest]) -> {stdout, [<<Tail/binary>> | Rest]};
 % Extract ERROR_BYTE marking stderr result
+check_err([<<146>> | Rest]) -> {stderr, Rest};
 check_err([<<146, Tail/binary>> | Rest]) -> {stderr, [<<Tail/binary>> | Rest]};
 check_err([]) -> {stdout, []}; % empty response
 check_err(Data) -> {error, invalid_status_byte, Data}.
