@@ -43,11 +43,11 @@ send(Server, Content) ->
   check_err(send_raw(Server, Content)).
 
 % Extract SUCCESS_BYTE marking stdout result
-check_err([<<145, Tail/binary>> | Rest]) -> {ok, [<<Tail/binary>> | Rest]};
+check_err([<<145, Tail/binary>> | Rest]) -> {stdout, [<<Tail/binary>> | Rest]};
 % Extract ERROR_BYTE marking stderr result
-check_err([<<146, Tail/binary>> | Rest]) -> {error, [<<Tail/binary>> | Rest]};
-check_err([])                     -> {ok, []}; % empty response
-check_err(Data)                   -> {invalid_error_byte, Data}.
+check_err([<<146, Tail/binary>> | Rest]) -> {stderr, [<<Tail/binary>> | Rest]};
+check_err([]) -> {stdout, []}; % empty response
+check_err(Data) -> {error, invalid_status_byte, Data}.
 
 %%====================================================================
 %% stdin->stdout through network
@@ -72,21 +72,21 @@ recv_loop(Sock, Accum) ->
 %% stdin->stdout through a series of pipes using pool or network
 %%====================================================================
 pipe(Content, []) ->
-  {ok, Content};
+  {stdout, Content};
 % If ErrorRegex is an integer, we have a {Host, Port} tuple, not a regex.
 pipe(Content, [{Server, ErrorRegex} | T]) when not is_integer(ErrorRegex) ->
   case send(Server, Content) of
-    {ok, Stdout} ->
+    {stdout, Stdout} ->
       case re:run(Stdout, ErrorRegex) of
           nomatch -> pipe(Stdout, T);
         {match, _} -> {error, Server, Stdout}
       end;
-    {error, Errout} -> {error, Server, Errout}
+    {stderr, Errout} -> {stderr, Server, Errout}
   end;
 pipe(Content, [Server | T]) ->
   case send(Server, Content) of
-    {ok, Stdout} -> pipe(Stdout, T);
-    {error, Errout} -> {error, Server, Errout}
+    {stdout, Stdout} -> pipe(Stdout, T);
+    {stderr, Errout} -> {stderr, Server, Errout}
   end.
 
 %%===================================================================

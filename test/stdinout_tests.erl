@@ -3,7 +3,9 @@
 
 -define(E(A, B), ?assertEqual(A, B)).
 -define(_E(A, B), ?_assertEqual(A, B)).
-
+-define(B_OUT(X), validate(stdout, X)).
+-define(B_ERR(X), validate(stderr, X)).
+validate(Out, {Out, Data}) -> iolist_to_binary(Data).
 
 get_base_dir(Module) ->
   {file, Here} = code:is_loaded(Module),
@@ -45,26 +47,34 @@ everything_erlang_API_in_parallel_test_() ->
     fun(_) ->
       {inparallel,
         [
-          ?_E({ok, [<<"hello">>]},      stdinout:send(cat1, "hello")),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(cat1, <<"hello">>)),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(cat1, [<<"hello">>])),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(cat1, [<<"he">>, <<"llo">>])),
-          ?_E(ok,                       stdinout:reload(cat1)),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(cat1, ["he", "llo"])),
-          ?_E({ok, []},                 stdinout:send(cat1, "")),
-          ?_E(ok,                       stdinout:reload(cat2)),
-          ?_E({ok, [<<"hello">>]},      stdinout:pipe("hello",[cat1, cat2, cat3, cat4])),
-
-          ?_E({error, cat1, [<<"hello">>]},
-                                        stdinout:pipe("hello", [{cat1, "he"}, cat2, cat3, cat4])),
-
-          ?_E({error, wc, [<<"      0       1       5\n">>]},
-                                        stdinout:pipe("hello", [{cat1, "bob"}, {wc, "5"}, cat3, cat4])),
+          ?_E(<<"hello">>,      ?B_OUT(stdinout:send(cat1, "hello"))),
+          ?_E(<<"hello">>,      ?B_OUT(stdinout:send(cat1, <<"hello">>))),
+          ?_E(<<"hello">>,      ?B_OUT(stdinout:send(cat1, [<<"hello">>]))),
+          ?_E(<<"hello">>,      ?B_OUT(stdinout:send(cat1, [<<"he">>, <<"llo">>]))),
+          ?_E(ok, stdinout:reload(cat1)),
+          ?_E(<<"hello">>,      ?B_OUT(stdinout:send(cat1, ["he", "llo"]))),
+          ?_E(<<>>,             ?B_OUT(stdinout:send(cat1, ""))),
+          ?_E(ok, stdinout:reload(cat2)),
+          ?_E(<<"hello">>,      ?B_OUT(stdinout:pipe("hello",[cat1, cat2, cat3, cat4]))),
+          ?_E({error, cat1, <<"hello">>},
+            % this wacky fun exists to erlang:iolist_to_binary/1 the ErrorIoList
+            fun() ->
+              {error, cat1, ErrorIoList} =
+                stdinout:pipe("hello", [{cat1, "he"}, cat2, cat3, cat4]),
+              {error, cat1, iolist_to_binary(ErrorIoList)}
+            end()),
+         ?_E(ok, stdinout:reload(cat1)),
+          ?_E({error, wc, <<"      0       1       5\n">>},
+            fun() ->
+              {error, wc, ErrorIoList} =
+                stdinout:pipe("hello", [{cat1, "bob"}, {wc, "5"}, cat3, cat4]),
+              {error, wc, iolist_to_binary(ErrorIoList)}
+            end()),
 
           % Assert that binary responses on stdout can start with status byte 145 or 146
-          ?_E({ok, [<<145,23,88,97>>]},      stdinout:send(cat1, <<145,23,88,97>>)),
-          ?_E({ok, [<<146,23,88,97>>]},      stdinout:send(cat1, <<146,23,88,97>>)),
-          ?_E({ok, [<<146,23,88,97>>]},      stdinout:pipe(<<146,23,88,97>>,[cat1, cat2, cat3, cat4]))
+          ?_E(<<145,23,88,97>>, ?B_OUT(stdinout:send(cat1, <<145,23,88,97>>))),
+          ?_E(<<146,23,88,97>>, ?B_OUT(stdinout:send(cat1, <<146,23,88,97>>))),
+          ?_E(<<146,23,88,97>>, ?B_OUT(stdinout:pipe(<<146,23,88,97>>,[cat1, cat2, cat3, cat4])))
         ]
       }
     end
@@ -78,20 +88,20 @@ everything_erlang_API_in_parallel_error_test_() ->
     fun(_) ->
       {inparallel,
         [
-          ?_E({error, [<<"hello">>]},           stdinout:send(errcat, "hello")),
-          ?_E({error, [<<"hello">>]},           stdinout:send(errcat, <<"hello">>)),
-          ?_E({error, [<<"hello">>]},           stdinout:send(errcat, [<<"hello">>])),
-          ?_E({error, [<<"hello">>]},           stdinout:send(errcat, [<<"he">>, <<"llo">>])),
-          ?_E(ok,                               stdinout:reload(errcat)),
-          ?_E({error, [<<"hello">>]},           stdinout:send(errcat, ["he", "llo"])),
-          ?_E({error, errcat, [<<"hello">>]},   stdinout:pipe("hello",[errcat, cat2, cat3, cat4])),
-          ?_E({error, errcat, [<<"hello">>]},   stdinout:pipe("hello",[cat1, cat2, errcat, cat4])),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(errcat, "hello"))),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(errcat, <<"hello">>))),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(errcat, [<<"hello">>]))),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(errcat, [<<"he">>, <<"llo">>]))),
+          ?_E(ok,          stdinout:reload(errcat)),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(errcat, ["he", "llo"]))),
+          ?_E({stderr, errcat, [<<"hello">>]}, stdinout:pipe("hello",[errcat, cat2, cat3, cat4])),
+          ?_E({stderr, errcat, [<<"hello">>]}, stdinout:pipe("hello",[cat1, cat2, errcat, cat4])),
 
           % Assert that binary responses on stderr can start with status byte 145 or 146
-          ?_E({error, [<<145,23,88,97>>]},              stdinout:send(errcat, <<145,23,88,97>>)),
-          ?_E({error, [<<146,23,88,97>>]},              stdinout:send(errcat, <<146,23,88,97>>)),
-          ?_E({error, errcat, [<<146,23,88,97>>]},      stdinout:pipe(<<146,23,88,97>>,[errcat, cat2, cat3, cat4])),
-          ?_E({error, errcat, [<<146,23,88,97>>]},      stdinout:pipe(<<146,23,88,97>>,[cat1, cat2, errcat, cat4]))
+          ?_E(<<145,23,88,97>>, ?B_ERR(stdinout:send(errcat, <<145,23,88,97>>))),
+          ?_E(<<146,23,88,97>>, ?B_ERR(stdinout:send(errcat, <<146,23,88,97>>))),
+          ?_E({stderr, errcat, [<<146,23,88,97>>]}, stdinout:pipe(<<146,23,88,97>>,[errcat, cat2, cat3, cat4])),
+          ?_E({stderr, errcat, [<<146,23,88,97>>]}, stdinout:pipe(<<146,23,88,97>>,[cat1, cat2, errcat, cat4]))
         ]
       }
     end
@@ -107,24 +117,31 @@ network_API_test_() ->
     fun(_) ->
       {inparallel,
         [
-          ?_E({ok, [<<"hello">>]},      stdinout:send(?C1, "hello")),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(?C2, <<"hello">>)),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(?C1, [<<"hello">>])),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(?C1, [<<"he">>, <<"llo">>])),
-          ?_E({ok, [<<"hello">>]},      stdinout:send(?C2, ["he", "llo"])),
-          ?_E({ok, []},                 stdinout:send(?C1, "")),
-          ?_E({ok, [<<"hello">>]},      stdinout:pipe("hello", [?C1, ?C2, ?C1, ?C2])),
-
-          ?_E({error, ?C1, [<<"hello">>]},
-                                        stdinout:pipe("hello", [{?C1, "he"}, ?C2, ?C2, ?C1])),
-
-          ?_E({error, ?W1, [<<"      0       1       5\n">>]},
-                                        stdinout:pipe("hello", [{?C2, "bob"}, {?W1, "5"}, ?C2, ?C1])),
+          ?_E(<<"hello">>, ?B_OUT(stdinout:send(?C1, "hello"))),
+          ?_E(<<"hello">>, ?B_OUT(stdinout:send(?C2, <<"hello">>))),
+          ?_E(<<"hello">>, ?B_OUT(stdinout:send(?C1, [<<"hello">>]))),
+          ?_E(<<"hello">>, ?B_OUT(stdinout:send(?C1, [<<"he">>, <<"llo">>]))),
+          ?_E(<<"hello">>, ?B_OUT(stdinout:send(?C2, ["he", "llo"]))),
+          ?_E(<<>>, ?B_OUT(stdinout:send(?C1, ""))),
+          ?_E(<<"hello">>, ?B_OUT(stdinout:pipe("hello", [?C1, ?C2, ?C1, ?C2]))),
+          ?_E({error, ?C1, <<"hello">>},
+            % this wacky fun exists to erlang:iolist_to_binary/1 the ErrorIoList
+            fun() ->
+              {error, ?C1, ErrorIoList} =
+                stdinout:pipe("hello", [{?C1, "he"}, ?C2, ?C2, ?C1]),
+              {error, ?C1, iolist_to_binary(ErrorIoList)}
+            end()),
+          ?_E({error, ?W1, <<"      0       1       5\n">>},
+            fun() ->
+              {error, ?W1, ErrorIoList} =
+                stdinout:pipe("hello", [{?C2, "bob"}, {?W1, "5"}, ?C2, ?C1]),
+              {error, ?W1, iolist_to_binary(ErrorIoList)}
+            end()),
 
           % Assert that network binary responses on stdout can start with status byte 145 or 146
-          ?_E({ok, [<<145,23,88,97>>]},      stdinout:send(?C1, <<145,23,88,97>>)),
-          ?_E({ok, [<<146,23,88,97>>]},      stdinout:send(?C2, <<146,23,88,97>>)),
-          ?_E({ok, [<<146,23,88,97>>]},      stdinout:pipe(<<146,23,88,97>>, [?C1, ?C2, ?C1, ?C2]))
+          ?_E(<<145,23,88,97>>, ?B_OUT(stdinout:send(?C1, <<145,23,88,97>>))),
+          ?_E(<<146,23,88,97>>, ?B_OUT(stdinout:send(?C2, <<146,23,88,97>>))),
+          ?_E(<<146,23,88,97>>, ?B_OUT(stdinout:pipe(<<146,23,88,97>>, [?C1, ?C2, ?C1, ?C2])))
         ]
       }
     end
@@ -138,19 +155,19 @@ network_API_error_test_() ->
     fun(_) ->
       {inparallel,
         [
-          ?_E({error, [<<"hello">>]},           stdinout:send(?E2, "hello")),
-          ?_E({error, [<<"hello">>]},           stdinout:send(?E2, <<"hello">>)),
-          ?_E({error, [<<"hello">>]},           stdinout:send(?E2, [<<"hello">>])),
-          ?_E({error, [<<"hello">>]},           stdinout:send(?E2, [<<"he">>, <<"llo">>])),
-          ?_E({error, [<<"hello">>]},           stdinout:send(?E2, ["he", "llo"])),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(?E2, "hello"))),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(?E2, <<"hello">>))),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(?E2, [<<"hello">>]))),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(?E2, [<<"he">>, <<"llo">>]))),
+          ?_E(<<"hello">>, ?B_ERR(stdinout:send(?E2, ["he", "llo"]))),
 
-          ?_E({error,{"localhost",6654},[<<"hello">>]},
+          ?_E({stderr,{"localhost",6654},[<<"hello">>]},
                                                 stdinout:pipe("hello", [?C1, ?C2, ?E2, ?C1])),
 
           % Assert that network binary responses on stderr can start with status byte 145 or 146
-          ?_E({error, [<<145,23,88,97>>]},                      stdinout:send(errcat, <<145,23,88,97>>)),
-          ?_E({error, [<<146,23,88,97>>]},                      stdinout:send(errcat, <<146,23,88,97>>)),
-          ?_E({error, {"localhost",6654}, [<<146,23,88,97>>]},  stdinout:pipe(<<146,23,88,97>>,[?C1, ?C2, ?E2, ?C1]))
+          ?_E({stderr, [<<145,23,88,97>>]}, stdinout:send(errcat, <<145,23,88,97>>)),
+          ?_E({stderr, [<<146,23,88,97>>]}, stdinout:send(errcat, <<146,23,88,97>>)),
+          ?_E({stderr, {"localhost",6654}, [<<146,23,88,97>>]},  stdinout:pipe(<<146,23,88,97>>,[?C1, ?C2, ?E2, ?C1]))
         ]
       }
     end
