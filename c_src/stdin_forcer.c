@@ -16,35 +16,40 @@
 #define CHILD_ERROR errorpipe[1]
 
 /* Status bytes */
-const unsigned char SUCCES_BYTE = 145;  /* ASCII & UTF-8 control character: 145 | 0x91 | PU1 | Reserved for private use. */
-const unsigned char ERROR_BYTE  = 146;  /* ASCII & UTF-8 control character: 146 | 0x92 | PU2 | Reserved for private use. */
+const unsigned char SUCCES_BYTE =
+    145; /* ASCII & UTF-8 control character: 145 | 0x91 | PU1 | Reserved for
+            private use. */
+const unsigned char ERROR_BYTE =
+    146; /* ASCII & UTF-8 control character: 146 | 0x92 | PU2 | Reserved for
+            private use. */
 
 int dup2close(int oldfd, int newfd) {
-  while ((dup2(oldfd, newfd) == -1) && (errno == EINTR)) {}
-  return close(oldfd);
+    while ((dup2(oldfd, newfd) == -1) && (errno == EINTR)) {
+    }
+    return close(oldfd);
 }
 
 void toSTDOUT(int fd, const char firstByte) {
-  char buf[BUFSIZ];
-  ssize_t count;
-
-  do { count = read(fd, buf, BUFSIZ); }
-  while ( count == -1 && errno == EINTR );
-
-  if (count == -1) {
-      perror("read");
-      exit(1);
-  }
-  else if (count > 0) {
-    if (firstByte)
-      write(STDOUT_FILENO, &firstByte, 1); /* Write first byte */
+    char buf[BUFSIZ];
+    ssize_t count;
 
     do {
-      write(STDOUT_FILENO, buf, count); /* Vomit forth our output on STDOUT */
-      count = read(fd, buf, BUFSIZ);
+        count = read(fd, buf, BUFSIZ);
+    } while (count == -1 && errno == EINTR);
+
+    if (count == -1) {
+        perror("read");
+        exit(1);
+    } else if (count > 0) {
+        if (firstByte)
+            write(STDOUT_FILENO, &firstByte, 1); /* Write first byte */
+
+        do {
+            write(STDOUT_FILENO, buf,
+                  count); /* Vomit forth our output on STDOUT */
+            count = read(fd, buf, BUFSIZ);
+        } while (count > 0);
     }
-    while (count > 0);
-  }
 }
 
 int main(int argc, char *argv[]) {
@@ -54,13 +59,17 @@ int main(int argc, char *argv[]) {
 
     assert(1 < argc && argc < 64);
 
-    if (pipe(readpipe) == -1 || pipe(writepipe) == -1 || pipe(errorpipe) == -1) {
+    if (pipe(readpipe) == -1 || pipe(writepipe) == -1 ||
+        pipe(errorpipe) == -1) {
         perror("pipe");
         exit(EXIT_FAILURE);
     }
 
-  cpid = fork();
-  if (cpid == -1) { perror("fork"); exit(EXIT_FAILURE); }
+    cpid = fork();
+    if (cpid == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
 
     if (cpid == 0) {
         /* Forked Child with STDIN forwarding */
@@ -84,7 +93,7 @@ int main(int argc, char *argv[]) {
            CHILD_ERROR = STDERR to the exec'd process. */
         if (dup2close(CHILD_READ, STDIN_FILENO) ||
             dup2close(CHILD_WRITE, STDOUT_FILENO) ||
-	    dup2close(CHILD_ERROR, STDERR_FILENO)) {
+            dup2close(CHILD_ERROR, STDERR_FILENO)) {
             perror("dup2 or close");
             _exit(EXIT_FAILURE);
         }
@@ -115,7 +124,7 @@ int main(int argc, char *argv[]) {
         close(PARENT_ERROR);  /* done reading from errorpipe */
         close(STDOUT_FILENO); /* done writing to stdout */
 
-        wait(NULL);          /* Wait for child to exit */
+        wait(NULL); /* Wait for child to exit */
 
         exit(EXIT_SUCCESS); /* This was a triumph */
     }
