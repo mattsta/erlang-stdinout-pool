@@ -8,7 +8,8 @@ What is it?
 stdinout_pool maintains a pool of idle processes waiting for input.
 
 You send input to a pool with `stdinout:send(Pool, Data)` and get back whatever
-the process returns on stdout or stderr.
+the process returns on stdout or stderr (as of version 2.0+, stdout and stderr
+are identified independently).
 
 You can also send input to a TCP port and get back the stdout output from a
 process in your pool.
@@ -22,15 +23,27 @@ forward it to a spawned process.  When the C port sees a null byte
 closes stdin and sends stdout from the spawned process to normal stdout.
 
 Erlang ports are also unable to differentiate between stdout and stderr.
-Therefore, the C port prepends the output from the spawned process with a status
-byte. When stdinout sees this byte as a first byte, it will remove it and return
-the stdout data as {ok, Data}, or the stderr data as {error, Data}.
+To get round that limitation, starting with version 2.0.0,
+stdinout_pool automatically tags stdout/stderr
+for you and returns your output as an iolist wrapped
+in an appropriate tuple: `{stdout, iolist()}` or `{stderr, iolist()}`.
 
-Note: Your input must not contain null bytes or else your input will terminate
-on them. But there are no restrictions on the output, it can be any binary stream.
+Note: Your input must not contain null bytes or your input will terminate early.
+There are no other restrictions on the input.  stdinout_pool was designed for
+sending text between processes, so if you have more complex binary protocol needs,
+you may need to modify the library to add a prefix length port protocol instead of
+automatically relying on null byte markers to terminate input.
 
 API
 ---
+**BREAKING CHANGE**: Version 2.0+ returns output wrapped in `stdout` and `stderr`
+tuples instead of returning a bare result.  If you don't care about stdout-vs-stderr,
+you can use `stdinoutpool:unwrap/1` or just strip off the first element of the
+result tuple yourself.  If the new output breaks your existing usage, you can
+always the older verson by pulling the [v1.3.7](https://github.com/mattsta/erlang-stdinout-pool/releases/tag/v1.3.7) tag
+
+---
+
 All you need for `stdinout_pool` is a command to run and sit idle waiting for
 stdin to close or get an eof.
 
@@ -39,8 +52,11 @@ IP is a string IP (e.g. "127.0.0.1") or a tuple IP (e.g. {127, 0, 0, 1}).
 Port is an integer.
 
 `stdinout:send(ServerNameOrPid, Data)` returns an iolist of stdout from the pool
+wrapped in a tuple of `{stdout, iolist()}` or `{stderr, iolist()}`.
 
-The number of default idle processes is the number of cores the erlang VM sees.
+The number of default idle processes is the number of cores the erlang VM sees
+as determined by one of: `erlang:system_info(cpu_topology)`, `erlang:system_info(logical_processors_available)`,
+or `erlang:system_info(schedulers_online)`.
 
 Note: there is no upper limit on the number of spawned processes.
 The process count is how
@@ -55,23 +71,22 @@ then no network server is created.
 
 Usage
 -----
-### Erlang API Basic STDIN/STDOUT Usage
+### Erlang API Basic STDIN/STDOUT Usage (updated for 2.0+)
 
 ```erlang
-61> stdinout:start_link(uglify, "/home/matt/bin/cl-uglify-js").
-{ok,<0.10143.0>}
-62> stdinout:send(uglify, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
-[<<"(function(){function b(){return a()}function a(){return 3}b()})();">>]
-
-63> stdinout:start_link(closure, "/usr/java/latest/bin/java -jar /home/matt/bin/closure/compiler.jar").
-{ok,<0.10149.0>}
-64> stdinout:send(closure, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
-[<<"(function(){function a(){return 3}function b(){return a()}b()})();\n">>]
-
-65> stdinout:start_link(yui_js, "/usr/java/latest/bin/java -jar /home/matt/bin/utils/yuicompressor/yuicompressor-2.4.2.jar --type js").
-{ok,<0.10153.0>}
-66> stdinout:send(yui_js, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
-[<<"(function(){function b(){return 3}function a(){return b()}a()})();">>]
+Eshell V6.0  (abort with ^G)
+1> stdinout:start_link(uglify, "/home/matt/bin/cl-uglify-js").
+{ok,<0.34.0>}
+2> stdinout:send(uglify, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
+{stdout,[<<"(function(){function b(){return a()}function a(){return 3}b()})();">>]}
+3> stdinout:start_link(closure, "/usr/java/latest/bin/java -jar /home/matt/bin/closure/compiler.jar").
+{ok,<0.38.0>}
+4> stdinout:send(closure, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
+{stdout,[<<"(function(){function a(){return 3}function b(){return a()}b()})();\n">>]}
+5> stdinout:start_link(yui_js, "/usr/java/latest/bin/java -jar /home/matt/./repos/yuicompressor/build/yuicompressor-2.4.8pre.jar --type js").
+{ok,<0.42.0>}
+6> stdinout:send(yui_js, "(function() { function YoLetsReturnThree(){ return 3 ; } function LOLCallingThree() { return YoLetsReturnThree() ; }; LOLCallingThree();})();").
+{stdout,[<<"(function(){function b(){return 3}function a(){return b()}a()})();">>]}
 ```
 
 Note: `cl-uglify-js` returned the result in an average of 20ms.
