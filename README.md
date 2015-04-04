@@ -1,6 +1,8 @@
 stdinout_pool: send to stdin and read stdout on external processes
 ==================================================================
 
+[![Build Status](https://secure.travis-ci.org/mattsta/erlang-stdinout-pool.png)](http://travis-ci.org/mattsta/erlang-stdinout-pool)
+
 What is it?
 -----------
 stdinout_pool maintains a pool of idle processes waiting for input.
