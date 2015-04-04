@@ -78,6 +78,8 @@ init([Cmd, IP, Port, SocketCount]) ->
 %%--------------------------------------------------------------------
 strip_ok({ok, Data}) -> Data;
 strip_ok(Data) -> Data.
+
+% TODO: Use poolboy instead of this hack of a pool.
 % If we run out of available processes, just make another one.
 % There should be a limit here. Maybe track used ones and make max 2xCount ports
 % Or, we could make a waiting_clients list and service them on respawn
