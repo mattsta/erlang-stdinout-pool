@@ -63,7 +63,7 @@ count_cpus([{processor, _} | T], Count) ->
 %%--------------------------------------------------------------------
 init([Cmd, IP, Port, SocketCount]) ->
   process_flag(trap_exit, true),
-  Forcer = get_base_dir(?MODULE) ++ "/priv/stdin_forcer",
+  Forcer = get_base_dir(?MODULE) ++ "/priv/stdinout_forcer",
   initial_setup(#state{cmd = Cmd, forcer = Forcer,
                        ip = IP, port = Port, count = SocketCount}).
 
