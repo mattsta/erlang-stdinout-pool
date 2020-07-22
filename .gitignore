@@ -2,4 +2,7 @@ ebin/
 priv/
 deps/
 *.o
+*.d
 .eunit/
+_build/
+rebar.lock
