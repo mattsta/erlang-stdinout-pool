@@ -144,22 +144,22 @@ Building
 --------
 Dependencies:
 
-        rebar get-deps
+        rebar3 get-deps
 
 Build:
 
-        rebar compile
+        rebar3 compile
 
 
 Testing
 -------
 Automated:
 
-        rebar eunit skip_deps=true
+        rebar3 eunit skip_deps=true
 
 Automated with timing details:
 
-        rebar eunit skip_deps=true -v
+        rebar3 eunit skip_deps=true -v
 
 In the `test/` directory there is a short script to verify error conditions.
 You can load test error conditions with:
